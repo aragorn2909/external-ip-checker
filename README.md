@@ -17,6 +17,10 @@ A Dockerized dynamic DNS (DDNS) client and monitor for [Afraid.org (FreeDNS)](ht
 The easiest way to run Afraid IP Sync is using Docker Compose.
 
 1.  **Clone or copy the project files:**
+    ```bash
+    git clone https://github.com/aragorn2909/external-ip-checker.git
+    cd external-ip-checker
+    ```
     Ensure `app.py`, `Dockerfile`, and `compose.yaml` are all in the same directory.
 
     ```yaml
