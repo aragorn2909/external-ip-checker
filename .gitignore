@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Web Dist and Builds
+/dist/
+build/
+/target/
+
+# Logs
+*.log
+
+# Databases and Config
+*.db
+*.sqlite
+*.sqlite3
+config.json
+/data/
+
+# OS and IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Explicitly Include
+!README.md
+!LICENSE

@@ -1,0 +1,28 @@
+# Afraid IP Sync
+# Copyright (C) 2026 [YOUR_USERNAME]
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+services:
+  afraid-sync-v2:
+    build: .
+    image: afraid-sync-v2:latest
+    container_name: afraid-sync-v2
+    ports:
+      - "7777:7777" # Web UI access
+    volumes:
+      - ./data:/app/data # Persist settings
+    environment:
+      # These now serve as initial defaults if config.json doesn't exist
+      - DDNS_DOMAIN=example.afraid.org
+      - UPDATE_URL=https://sync.afraid.org/u/YOUR_UNIQUE_TOKEN_HERE/
+      - CHECK_INTERVAL=1800
+    restart: unless-stopped
