@@ -21,8 +21,10 @@ services:
     volumes:
       - ./data:/app/data # Persist settings
     environment:
-      # These now serve as initial defaults if config.json doesn't exist
+      # These serve as initial defaults if config.json doesn't exist
       - DDNS_DOMAIN=example.afraid.org
       - UPDATE_URL=https://sync.afraid.org/u/YOUR_UNIQUE_TOKEN_HERE/
       - CHECK_INTERVAL=1800
+      - DASHBOARD_USER=admin
+      - DASHBOARD_PASS=admin
     restart: unless-stopped

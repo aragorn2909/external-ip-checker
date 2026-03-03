@@ -94,6 +94,10 @@ If you see this error when running the container:
 2.  **Force Rebuild**: Run `docker compose build --no-cache` and then `docker compose up -d` to ensure the image is built correctly with the local source files.
 3.  **Permissions**: Ensure the user running Docker has read permissions for the project directory.
 
+## 🛡️ Security & Disclaimer
+
+**Please use this software at your own risk.**
+
 ## License
 
 This project is licensed under the **GNU General Public License v2.0 (GPL-2.0)**. See the [LICENSE](file:///home/aaron/.gemini/antigravity/scratch/external-ip-checker/LICENSE) file for the full license text.

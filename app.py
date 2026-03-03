@@ -39,6 +39,8 @@ default_config: Dict[str, Any] = {
     "global_interval": 1800,
     "afraid_user": "",
     "afraid_pass": "",
+    "dashboard_user": "admin",
+    "dashboard_pass": "admin",
     "timezone": "UTC",
     "theme": "light"
 }
@@ -77,10 +79,24 @@ def load_config() -> None:
                     
                 if not isinstance(config.get("afraid_user"), str): config["afraid_user"] = ""
                 if not isinstance(config.get("afraid_pass"), str): config["afraid_pass"] = ""
+                if not isinstance(config.get("dashboard_user"), str): config["dashboard_user"] = "admin"
+                if not isinstance(config.get("dashboard_pass"), str): config["dashboard_pass"] = "admin"
                 if not isinstance(config.get("timezone"), str): config["timezone"] = "UTC"
                 if not isinstance(config.get("theme"), str): config["theme"] = "light"
         except Exception as e:
             print(f"Error loading config: {e}")
+
+    # Override defaults with environment variables if provided and config is empty
+    env_user = os.environ.get("DASHBOARD_USER")
+    env_pass = os.environ.get("DASHBOARD_PASS")
+    if env_user: config["dashboard_user"] = env_user
+    if env_pass: config["dashboard_pass"] = env_pass
+
+    # Handle legacy env vars for initial setup if no domains exist
+    env_domain = os.environ.get("DDNS_DOMAIN")
+    env_url = os.environ.get("UPDATE_URL")
+    if env_domain and env_url and not config["domains"]:
+        config["domains"].append({"domain": env_domain, "update_url": env_url})
 
 def save_config():
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
@@ -89,6 +105,23 @@ def save_config():
 
 load_config()
 
+# Auth Helpers
+def check_auth(username, password):
+    return username == config.get("dashboard_user") and password == config.get("dashboard_pass")
+
+def authenticate():
+    return jsonify({"message": "Authentication Required"}), 401, {'WWW-Authenticate': 'Basic realm="Login Required"'}
+
+from functools import wraps
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -96,8 +129,6 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <title>Afraid IP Sync Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         :root {
             --primary-color: #2196F3;
@@ -473,8 +504,6 @@ SETTINGS_TEMPLATE = """
     <meta charset="UTF-8">
     <title>Settings - Afraid IP Sync</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         :root {
             --primary-color: #2196F3;
@@ -622,6 +651,27 @@ SETTINGS_TEMPLATE = """
     <div class="container">
         <div class="card">
             <div class="section-title">
+                <span class="material-icons">security</span>
+                Dashboard Security
+            </div>
+            <form action="{{ url_for('save_security') }}" method="POST">
+                <div class="row">
+                    <div class="input-group">
+                        <span class="label">Dashboard Username</span>
+                        <input type="text" name="dashboard_user" value="{{ config.dashboard_user }}">
+                    </div>
+                    <div class="input-group">
+                        <span class="label">Dashboard Password</span>
+                        <input type="password" name="dashboard_pass" value="{{ config.dashboard_pass }}">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-secondary">Update Security</button>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 12px;">
+                    <em>Note: Changing credentials will require a new login.</em>
+                </div>
+            </form>
+
+            <div class="section-title" style="margin-top: 48px;">
                 <span class="material-icons">account_circle</span>
                 Afraid.org Account
             </div>
@@ -710,7 +760,7 @@ SETTINGS_TEMPLATE = """
 
 def get_external_ip():
     try:
-        return subprocess.check_output(["curl", "-s", "https://ifconfig.me"], text=True).strip()
+        return subprocess.check_output(["curl", "-s", "-A", "AfraidIPSync/1.0", "https://ifconfig.me"], text=True).strip()
     except Exception:
         return None
 
@@ -723,7 +773,7 @@ def get_dns_ip(domain):
 
 def update_ddns(url):
     try:
-        return subprocess.check_output(["curl", "-s", url], text=True).strip()
+        return subprocess.check_output(["curl", "-s", "-A", "AfraidIPSync/1.0", url], text=True).strip()
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -795,26 +845,73 @@ def check_loop() -> None:
         time.sleep(interval)
 
 @app.route('/')
+@requires_auth
 def home():
     return render_template_string(HTML_TEMPLATE, state=state, config=config)
 
 @app.route('/api/status')
+@requires_auth
 def api_status():
     return jsonify(state["results"])
 
 @app.route('/settings')
+@requires_auth
 def settings():
-    return render_template_string(SETTINGS_TEMPLATE, config=config)
+    safe_config = config.copy()
+    
+    if safe_config.get("afraid_pass"):
+        safe_config["afraid_pass"] = "********"
+    if safe_config.get("dashboard_pass"):
+        safe_config["dashboard_pass"] = "********"
+        
+    safe_domains = []
+    for d in safe_config.get("domains", []):
+        d_safe = d.copy()
+        url = d_safe.get("update_url", "")
+        if "sync.afraid.org/u/" in url:
+            parts = url.split("sync.afraid.org/u/")
+            if len(parts) == 2:
+                token_part = parts[1].split("/")
+                if len(token_part) > 2: # Has trailing query or slashed parts
+                     d_safe["update_url"] = f"https://sync.afraid.org/u/********/{token_part[-1]}"
+                elif len(token_part) > 0:
+                     d_safe["update_url"] = f"https://sync.afraid.org/u/********/"
+        safe_domains.append(d_safe)
+    safe_config["domains"] = safe_domains
+
+    return render_template_string(SETTINGS_TEMPLATE, config=safe_config)
+
+@app.route('/save_security', methods=['POST'])
+@requires_auth
+def save_security():
+    new_user = request.form.get("dashboard_user", "").strip()
+    new_pass = request.form.get("dashboard_pass", "").strip()
+    
+    if new_user:
+        config["dashboard_user"] = new_user
+    if new_pass and new_pass != "********":
+        config["dashboard_pass"] = new_pass
+        
+    save_config()
+    flash("Dashboard security updated.", "success")
+    return redirect(url_for('settings'))
 
 @app.route('/save_account', methods=['POST'])
+@requires_auth
 def save_account():
-    config["afraid_user"] = request.form.get("afraid_user", "").strip()
-    config["afraid_pass"] = request.form.get("afraid_pass", "").strip()
+    new_user = request.form.get("afraid_user", "").strip()
+    new_pass = request.form.get("afraid_pass", "").strip()
+    
+    config["afraid_user"] = new_user
+    if new_pass != "********":
+        config["afraid_pass"] = new_pass
+        
     save_config()
     flash("Account credentials saved.", "success")
     return redirect(url_for('settings'))
 
 @app.route('/import_afraid', methods=['POST'])
+@requires_auth
 def import_afraid():
     user = config.get("afraid_user")
     pw = config.get("afraid_pass")
@@ -842,7 +939,6 @@ def import_afraid():
                 update_url = f"https://sync.afraid.org/u/{update_token}/"
                 
                 exists = False
-                # config["domains"] is guaranteed to be List[Dict[str, str]] by load_config
                 domains_list: List[Dict[str, str]] = config.get("domains", [])
                 for d in domains_list:
                     if d.get("domain") == domain_name:
@@ -861,6 +957,7 @@ def import_afraid():
     return redirect(url_for('settings'))
 
 @app.route('/add_domain', methods=['POST'])
+@requires_auth
 def add_domain():
     domain = request.form.get("domain", "").strip()
     update_url = request.form.get("update_url", "").strip()
@@ -878,6 +975,7 @@ def add_domain():
     return redirect(url_for('settings'))
 
 @app.route('/delete_domain/<int:index>', methods=['POST'])
+@requires_auth
 def delete_domain(index: int):
     domains_list: List[Dict[str, str]] = config.get("domains", [])
     if 0 <= index < len(domains_list):
@@ -892,6 +990,7 @@ def delete_domain(index: int):
     return redirect(url_for('settings'))
 
 @app.route('/save_global', methods=['POST'])
+@requires_auth
 def save_global():
     try:
         config["global_interval"] = int(request.form.get("global_interval", 1800))
@@ -904,12 +1003,14 @@ def save_global():
     return redirect(url_for('settings'))
 
 @app.route('/sync_all', methods=['POST'])
+@requires_auth
 def sync_all():
     run_all_checks(force=False)
     flash("Sync initiated for all domains.", "success")
     return redirect(url_for('home'))
 
 @app.route('/force_all', methods=['POST'])
+@requires_auth
 def force_all():
     run_all_checks(force=True)
     flash("Force correction initiated for all domains.", "success")
