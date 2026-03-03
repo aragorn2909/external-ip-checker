@@ -29,6 +29,16 @@ from threading import Thread
 from typing import Dict, List, Any, Union
 
 app = Flask(__name__)
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # Pass through HTTP errors
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e
+    # Handle non-HTTP exceptions only
+    return f'INTERNAL SERVER ERROR: {str(e)}', 500
+
 app.secret_key = os.urandom(24)
 
 CONFIG_PATH = os.path.join("/app/data", "config.json")
@@ -99,9 +109,20 @@ def load_config() -> None:
         config["domains"].append({"domain": env_domain, "update_url": env_url})
 
 def save_config():
-    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-    with open(CONFIG_PATH, 'w') as f:
-        json.dump(config, f, indent=4)
+    try:
+        data_dir = os.path.dirname(CONFIG_PATH)
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir, exist_ok=True)
+            
+        # Write to a temporary file first and then rename to ensure atomicity
+        temp_path = CONFIG_PATH + ".tmp"
+        with open(temp_path, 'w') as f:
+            json.dump(config, f, indent=4)
+        os.replace(temp_path, CONFIG_PATH)
+    except Exception as e:
+        print(f"CRITICAL ERROR in save_config: {e}")
+        # Re-raise to be caught by route handlers
+        raise e
 
 load_config()
 
@@ -493,6 +514,7 @@ HTML_TEMPLATE = """
 
             // Poll every 5 seconds
             setInterval(updateStatus, 5000);
+        </script>
 
     <script>
         // Auto-hide alerts after 5 seconds
