@@ -848,10 +848,22 @@ SETTINGS_TEMPLATE = """
 """
 
 def get_external_ip():
-    try:
-        return subprocess.check_output(["curl", "-s", "-A", "AfraidIPSync/1.0", "https://ifconfig.me"], text=True).strip()
-    except Exception:
-        return None
+    # Try multiple services to ensure reliability and plain text output
+    services = [
+        ["curl", "-s", "https://ident.me"],
+        ["curl", "-s", "https://ifconfig.me/ip"],
+        ["curl", "-s", "https://icanhazip.com"]
+    ]
+    
+    for cmd in services:
+        try:
+            output = subprocess.check_output(cmd, text=True, timeout=10).strip()
+            # Basic validation: ensure it looks like an IP (doesn't contain HTML)
+            if output and "<" not in output and ">" not in output and len(output) < 50:
+                return output
+        except Exception:
+            continue
+    return None
 
 def get_dns_ip(domain):
     try:
