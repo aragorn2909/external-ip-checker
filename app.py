@@ -478,6 +478,16 @@ HTML_TEMPLATE = """
 
             // Poll every 5 seconds
             setInterval(updateStatus, 5000);
+
+            // Auto-hide alerts after 5 seconds
+            setTimeout(() => {
+                const alerts = document.querySelectorAll('.alert');
+                alerts.forEach(alert => {
+                    alert.style.transition = 'opacity 0.5s ease-out';
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 500);
+                });
+            }, 5000);
         </script>
         
         <div style="text-align: right;">
@@ -649,6 +659,17 @@ SETTINGS_TEMPLATE = """
     </header>
 
     <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+                <span class="material-icons">{{ 'check_circle' if category == 'success' else 'error' }}</span>
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
         <div class="card">
             <div class="section-title">
                 <span class="material-icons">security</span>
@@ -754,6 +775,17 @@ SETTINGS_TEMPLATE = """
             </form>
         </div>
     </div>
+    <script>
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.transition = 'opacity 0.5s ease-out';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            });
+        }, 5000);
+    </script>
 </body>
 </html>
 """
