@@ -951,30 +951,36 @@ def settings():
 @app.route('/save_security', methods=['POST'])
 @requires_auth
 def save_security():
-    new_user = request.form.get("dashboard_user", "").strip()
-    new_pass = request.form.get("dashboard_pass", "").strip()
-    
-    if new_user:
-        config["dashboard_user"] = new_user
-    if new_pass and new_pass != "********":
-        config["dashboard_pass"] = new_pass
+    try:
+        new_user = request.form.get("dashboard_user", "").strip()
+        new_pass = request.form.get("dashboard_pass", "").strip()
         
-    save_config()
-    flash("Dashboard security updated.", "success")
+        if new_user:
+            config["dashboard_user"] = new_user
+        if new_pass and new_pass != "********":
+            config["dashboard_pass"] = new_pass
+            
+        save_config()
+        flash("Dashboard security updated.", "success")
+    except Exception as e:
+        flash(f"Error saving security: {str(e)}", "error")
     return redirect(url_for('settings'))
 
 @app.route('/save_account', methods=['POST'])
 @requires_auth
 def save_account():
-    new_user = request.form.get("afraid_user", "").strip()
-    new_pass = request.form.get("afraid_pass", "").strip()
-    
-    config["afraid_user"] = new_user
-    if new_pass != "********":
-        config["afraid_pass"] = new_pass
+    try:
+        new_user = request.form.get("afraid_user", "").strip()
+        new_pass = request.form.get("afraid_pass", "").strip()
         
-    save_config()
-    flash("Account credentials saved.", "success")
+        config["afraid_user"] = new_user
+        if new_pass != "********":
+            config["afraid_pass"] = new_pass
+            
+        save_config()
+        flash("Account credentials saved.", "success")
+    except Exception as e:
+        flash(f"Error saving account: {str(e)}", "error")
     return redirect(url_for('settings'))
 
 @app.route('/import_afraid', methods=['POST'])
@@ -1026,19 +1032,22 @@ def import_afraid():
 @app.route('/add_domain', methods=['POST'])
 @requires_auth
 def add_domain():
-    domain = request.form.get("domain", "").strip()
-    update_url = request.form.get("update_url", "").strip()
-    if domain and update_url:
-        for d in config["domains"]:
-            if d["domain"] == domain:
-                d["update_url"] = update_url
-                save_config()
-                flash(f"Updated {domain}.", "success")
-                return redirect(url_for('settings'))
-        
-        config["domains"].append({"domain": domain, "update_url": update_url})
-        save_config()
-        flash(f"Added {domain}.", "success")
+    try:
+        domain = request.form.get("domain", "").strip()
+        update_url = request.form.get("update_url", "").strip()
+        if domain and update_url:
+            for d in config["domains"]:
+                if d["domain"] == domain:
+                    d["update_url"] = update_url
+                    save_config()
+                    flash(f"Updated {domain}.", "success")
+                    return redirect(url_for('settings'))
+            
+            config["domains"].append({"domain": domain, "update_url": update_url})
+            save_config()
+            flash(f"Added {domain}.", "success")
+    except Exception as e:
+        flash(f"Error adding domain: {str(e)}", "error")
     return redirect(url_for('settings'))
 
 @app.route('/delete_domain/<int:index>', methods=['POST'])
@@ -1065,8 +1074,8 @@ def save_global():
         config["theme"] = request.form.get("theme", "light").strip()
         save_config()
         flash("Global settings saved.", "success")
-    except ValueError:
-        pass
+    except Exception as e:
+        flash(f"Error saving global configuration: {str(e)}", "error")
     return redirect(url_for('settings'))
 
 @app.route('/sync_all', methods=['POST'])
