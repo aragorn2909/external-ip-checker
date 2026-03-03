@@ -346,6 +346,8 @@ HTML_TEMPLATE = """
         }
         .alert-success { background: var(--success-color); color: white; }
         .alert-error { background: var(--error-color); color: white; }
+        .alert-warning { background: var(--warning-color); color: white; }
+        .alert-info { background: var(--primary-color); color: white; }
 
         @keyframes fadeOut {
             from { opacity: 1; transform: translateY(0); }
@@ -377,8 +379,13 @@ HTML_TEMPLATE = """
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
-                <span class="material-icons">{{ 'check_circle' if category == 'success' else 'error' }}</span>
+              <div class="alert alert-{{ category }}">
+                <span class="material-icons">
+                  {% if category == 'success' %}check_circle
+                  {% elif category == 'error' %}error
+                  {% elif category == 'warning' %}warning
+                  {% else %}info{% endif %}
+                </span>
                 {{ message }}
               </div>
             {% endfor %}
@@ -487,21 +494,18 @@ HTML_TEMPLATE = """
             // Poll every 5 seconds
             setInterval(updateStatus, 5000);
 
-            // Auto-hide alerts after 5 seconds
-            function setupAlertAutohide() {
-                const alerts = document.querySelectorAll('.alert');
-                if (alerts.length > 0) {
-                    setTimeout(() => {
-                        alerts.forEach(alert => {
-                            alert.classList.add('hiding');
-                            setTimeout(() => alert.remove(), 500);
-                        });
-                    }, 5000);
-                }
-            }
-            
-            setupAlertAutohide();
-        </script>
+    <script>
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', () => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    alert.classList.add('hiding');
+                    setTimeout(() => alert.remove(), 500);
+                }, 5000);
+            });
+        });
+    </script>
         
         <div style="text-align: right;">
             <form action="{{ url_for('force_all') }}" method="POST">
@@ -573,6 +577,10 @@ SETTINGS_TEMPLATE = """
             --status-info-bg: rgba(33, 150, 243, 0.15);
             --status-info-text: #64B5F6;
         }
+        .alert-success { background: var(--status-success-text); color: white; }
+        .alert-error { background: var(--status-error-text); color: white; }
+        .alert-warning { background: var(--status-warning-text); color: white; }
+        .alert-info { background: var(--status-info-text); color: white; }
 
         @keyframes fadeOut {
             from { opacity: 1; transform: translateY(0); }
@@ -683,8 +691,13 @@ SETTINGS_TEMPLATE = """
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
-                <span class="material-icons">{{ 'check_circle' if category == 'success' else 'error' }}</span>
+              <div class="alert alert-{{ category }}">
+                <span class="material-icons">
+                  {% if category == 'success' %}check_circle
+                  {% elif category == 'error' %}error
+                  {% elif category == 'warning' %}warning
+                  {% else %}info{% endif %}
+                </span>
                 {{ message }}
               </div>
             {% endfor %}
@@ -798,18 +811,15 @@ SETTINGS_TEMPLATE = """
     </div>
     <script>
         // Auto-hide alerts after 5 seconds
-        function setupAlertAutohide() {
+        document.addEventListener('DOMContentLoaded', () => {
             const alerts = document.querySelectorAll('.alert');
-            if (alerts.length > 0) {
+            alerts.forEach(alert => {
                 setTimeout(() => {
-                    alerts.forEach(alert => {
-                        alert.classList.add('hiding');
-                        setTimeout(() => alert.remove(), 500);
-                    });
+                    alert.classList.add('hiding');
+                    setTimeout(() => alert.remove(), 500);
                 }, 5000);
-            }
-        }
-        setupAlertAutohide();
+            });
+        });
     </script>
 </body>
 </html>
@@ -1063,14 +1073,14 @@ def save_global():
 @requires_auth
 def sync_all():
     run_all_checks(force=False)
-    flash("Sync initiated for all domains.", "success")
+    flash("Sync initiated for all domains.", "info")
     return redirect(url_for('home'))
 
 @app.route('/force_all', methods=['POST'])
 @requires_auth
 def force_all():
     run_all_checks(force=True)
-    flash("Force correction initiated for all domains.", "success")
+    flash("Force correction initiated for all domains.", "warning")
     return redirect(url_for('home'))
 
 if __name__ == "__main__":
