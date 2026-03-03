@@ -13,8 +13,8 @@
 
 FROM alpine:latest
 
-# Install system dependencies including tzdata for timezone support
-RUN apk add --no-cache curl bind-tools python3 py3-flask tzdata
+# Install system dependencies including tzdata and su-exec
+RUN apk add --no-cache curl bind-tools python3 py3-flask tzdata su-exec
 
 # Set working directory
 WORKDIR /app
@@ -22,11 +22,14 @@ WORKDIR /app
 # Create data directory for persistent configuration
 RUN mkdir -p /app/data
 
-# Copy application files (including app.py and any dependencies)
+# Copy application files
 COPY . /app
+
+# Ensure entrypoint is executable
+RUN chmod +x /app/entrypoint.sh
 
 # Expose the Web UI port
 EXPOSE 7777
 
-# Start the application with diagnostics
-CMD ["sh", "-c", "ls -R /app && python3 -u /app/app.py"]
+# Use entrypoint script to fix permissions and start app
+ENTRYPOINT ["/app/entrypoint.sh"]

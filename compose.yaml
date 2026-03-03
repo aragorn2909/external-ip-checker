@@ -16,12 +16,16 @@ services:
     build: .
     image: afraid-sync-v2:latest
     container_name: afraid-sync-v2
-    user: "${UID:-1000}:${GID:-1000}"
+    # The user is now handled by the entrypoint script (running as root initially to fix perms)
+    # user: "${UID:-1000}:${GID:-1000}"
     ports:
       - "7777:7777" # Web UI access
     volumes:
       - ./data:/app/data # Persist settings
     environment:
+      # PUID/PGID allow the entrypoint to fix permissions automatically
+      - PUID=${UID:-1000}
+      - PGID=${GID:-1000}
       # These serve as initial defaults if config.json doesn't exist
       - DDNS_DOMAIN=example.afraid.org
       - UPDATE_URL=https://sync.afraid.org/u/YOUR_UNIQUE_TOKEN_HERE/
