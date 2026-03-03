@@ -347,6 +347,14 @@ HTML_TEMPLATE = """
         .alert-success { background: var(--success-color); color: white; }
         .alert-error { background: var(--error-color); color: white; }
 
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        .alert.hiding {
+            animation: fadeOut 0.5s ease-in forwards;
+        }
+
         .ip-container { display: flex; flex-direction: column; gap: 4px; }
         .ip-label { font-size: 10px; color: var(--text-secondary); font-weight: bold; }
     </style>
@@ -480,14 +488,19 @@ HTML_TEMPLATE = """
             setInterval(updateStatus, 5000);
 
             // Auto-hide alerts after 5 seconds
-            setTimeout(() => {
+            function setupAlertAutohide() {
                 const alerts = document.querySelectorAll('.alert');
-                alerts.forEach(alert => {
-                    alert.style.transition = 'opacity 0.5s ease-out';
-                    alert.style.opacity = '0';
-                    setTimeout(() => alert.remove(), 500);
-                });
-            }, 5000);
+                if (alerts.length > 0) {
+                    setTimeout(() => {
+                        alerts.forEach(alert => {
+                            alert.classList.add('hiding');
+                            setTimeout(() => alert.remove(), 500);
+                        });
+                    }, 5000);
+                }
+            }
+            
+            setupAlertAutohide();
         </script>
         
         <div style="text-align: right;">
@@ -559,6 +572,14 @@ SETTINGS_TEMPLATE = """
             --status-error-text: #E57373;
             --status-info-bg: rgba(33, 150, 243, 0.15);
             --status-info-text: #64B5F6;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        .alert.hiding {
+            animation: fadeOut 0.5s ease-in forwards;
         }
 
         body { font-family: 'Roboto', sans-serif; margin: 0; background: var(--bg-color); color: var(--text-primary); }
@@ -777,14 +798,18 @@ SETTINGS_TEMPLATE = """
     </div>
     <script>
         // Auto-hide alerts after 5 seconds
-        setTimeout(() => {
+        function setupAlertAutohide() {
             const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                alert.style.transition = 'opacity 0.5s ease-out';
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
-            });
-        }, 5000);
+            if (alerts.length > 0) {
+                setTimeout(() => {
+                    alerts.forEach(alert => {
+                        alert.classList.add('hiding');
+                        setTimeout(() => alert.remove(), 500);
+                    });
+                }, 5000);
+            }
+        }
+        setupAlertAutohide();
     </script>
 </body>
 </html>
