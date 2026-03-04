@@ -881,10 +881,17 @@ def get_dns_ip(domain):
         return None
 
 def update_ddns(url):
+    # Self-healing: Detect and repair double-prefixed URLs
+    # Example: https://sync.afraid.org/u/http://freedns.afraid.org/...
+    if "sync.afraid.org/u/http" in url:
+        # Extract the actual URL from the mangled string
+        parts = url.split("sync.afraid.org/u/")
+        if len(parts) > 1:
+            url = parts[1]
+    
     try:
         # Use -f to return an error code on 4xx/5xx responses
         # Add -L to follow redirects
-        # Use -i to potentially capture headers if we needed them, but we'll stick to -w for status code
         cmd = ["curl", "-s", "-L", "-w", "\n%{http_code}", "-A", "AfraidIPSync/1.0", url]
         output = subprocess.check_output(cmd, text=True, timeout=15).strip().split('\n')
         
@@ -1068,13 +1075,19 @@ def import_afraid():
                 domain_name = str(parts[0]).strip()
                 api_token_or_url = str(parts[2]).strip()
                 
-                # Check if it's already a full URL
-                if api_token_or_url.startswith("http"):
-                    # Use the URL directly but standardize it
-                    update_url = api_token_or_url
+                # Check if it's already a full URL or contains a URL
+                if "://" in api_token_or_url:
+                    # If it's a full URL, use it directly
+                    # Sometimes the API returns a URL that starts with http or contains it
+                    if api_token_or_url.startswith("http"):
+                        update_url = api_token_or_url
+                    else:
+                        # Fallback for weirdly formatted strings that contain a URL
+                        # (though unlikely from Afraid API, let's be safe)
+                        start_idx = api_token_or_url.find("http")
+                        update_url = api_token_or_url[start_idx:] if start_idx != -1 else api_token_or_url
                 else:
                     # It's just a token, use the sync.afraid.org format
-                    # Ensure no extra slashes if we append
                     token = api_token_or_url.strip('/')
                     update_url = f"https://sync.afraid.org/u/{token}/"
                 
