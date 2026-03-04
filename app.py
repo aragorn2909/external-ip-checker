@@ -941,8 +941,16 @@ def run_single_check(domain_config: Dict[str, str], force: bool = False) -> None
     dns_ip = get_dns_ip(domain)
     res["dns_ip"] = dns_ip or "Not found"
     
+    # Get last known successful IP from state
+    last_success_ip = res.get("last_success_ip")
+    
     if not force and ext_ip and ext_ip == dns_ip:
         res["status"] = "Synced"
+        res["status_class"] = "success"
+        res["last_success_ip"] = ext_ip
+    elif not force and ext_ip and last_success_ip == ext_ip:
+        # We know we updated it successfully recently, but DNS hasn't caught up
+        res["status"] = "Synced (Propagating)"
         res["status_class"] = "success"
     elif ext_ip:
         if force:
@@ -955,8 +963,21 @@ def run_single_check(domain_config: Dict[str, str], force: bool = False) -> None
         if update_url:
             update_res = update_ddns(update_url)
             res["status"] = f"Updated: {update_res}"
+            
+            # Afraid.org returns "Address [IP] has not changed." if it's already correct.
+            # This is a success, not a warning/error.
+            lower_res = update_res.lower()
+            if "has not changed" in lower_res or "ok" in lower_res:
+                res["status_class"] = "success"
+                res["last_success_ip"] = ext_ip # Mark this IP as successfully handled
+                # Strip misleading "ERROR:" prefix if present in "has not changed" message
+                if "error: address" in lower_res:
+                    res["status"] = f"Updated: {update_res.replace('ERROR: ', '').replace('error: ', '')}"
+            else:
+                res["status_class"] = "error"
         else:
             res["status"] = "No URL"
+            res["status_class"] = "error"
     else:
         res["status"] = "IP Error"
         res["status_class"] = "error"
