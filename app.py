@@ -882,7 +882,23 @@ def get_dns_ip(domain):
 
 def update_ddns(url):
     try:
-        return subprocess.check_output(["curl", "-s", "-A", "AfraidIPSync/1.0", url], text=True).strip()
+        # Use -f to return an error code on 4xx/5xx responses
+        # Add -L to follow redirects
+        # Use -i to potentially capture headers if we needed them, but we'll stick to -w for status code
+        cmd = ["curl", "-s", "-L", "-w", "\n%{http_code}", "-A", "AfraidIPSync/1.0", url]
+        output = subprocess.check_output(cmd, text=True, timeout=15).strip().split('\n')
+        
+        status_code = output[-1] if len(output) > 1 else "Unknown"
+        body = "\n".join(output[:-1]) if len(output) > 1 else output[0]
+        
+        if status_code == "200":
+            return body if body.strip() else "OK (Empty Response)"
+        elif status_code == "404":
+            return f"Error 404: Page not found (URL: {url})"
+        else:
+            return f"Status {status_code}: {body.strip()[:100]}"
+    except subprocess.TimeoutExpired:
+        return "Error: Update request timed out"
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -1049,9 +1065,18 @@ def import_afraid():
         for line in lines:
             parts = line.split('|')
             if len(parts) >= 3:
-                domain_name = str(parts[0])
-                update_token = str(parts[2])
-                update_url = f"https://sync.afraid.org/u/{update_token}/"
+                domain_name = str(parts[0]).strip()
+                api_token_or_url = str(parts[2]).strip()
+                
+                # Check if it's already a full URL
+                if api_token_or_url.startswith("http"):
+                    # Use the URL directly but standardize it
+                    update_url = api_token_or_url
+                else:
+                    # It's just a token, use the sync.afraid.org format
+                    # Ensure no extra slashes if we append
+                    token = api_token_or_url.strip('/')
+                    update_url = f"https://sync.afraid.org/u/{token}/"
                 
                 exists = False
                 domains_list: List[Dict[str, str]] = config.get("domains", [])
